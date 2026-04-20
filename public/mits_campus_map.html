@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MITS 3D Campus Map</title>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    body { margin: 0; padding: 0; background-color: #0f172a; overflow: hidden; font-family: 'Space Mono', sans-serif; }
+    #wrapper { position: relative; width: 100vw; height: 100vh; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    
+    #loader {
+      position: fixed; inset: 0; z-index: 50;
+      background: linear-gradient(to bottom right, #0f172a, #1e293b);
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.5s ease-out;
+    }
+    .spinner {
+      width: 3rem; height: 3rem; border: 4px solid #06b6d4; border-top-color: #ec4899;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem auto;
+    }
+    .loading-text {
+      color: #06b6d4; font-size: 0.875rem; letter-spacing: 0.1em;
+      text-transform: uppercase; text-align: center; font-family: monospace;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #explore-btn {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 40;
+      padding: 1rem 2rem;
+      background: linear-gradient(to right, #ec4899, #3b82f6, #06b6d4);
+      color: white; border: none; border-radius: 0.5rem;
+      font-size: 1.5rem; font-weight: bold; cursor: pointer;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      opacity: 0; pointer-events: none; transition: all 0.3s ease;
+      letter-spacing: 2px;
+    }
+    #explore-btn:hover { transform: translate(-50%, -50%) scale(1.05); }
+    #explore-btn.visible { opacity: 1; pointer-events: auto; }
+
+    .tooltip {
+      position: absolute; background: rgba(0,0,0,0.8); color: white;
+      padding: 6px 12px; border-radius: 6px; font-size: 14px;
+      pointer-events: none; z-index: 10; display: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div id="wrapper">
+    <div id="loader">
+      <div>
+        <div class="spinner"></div>
+        <div class="loading-text">Loading map...</div>
+      </div>
+    </div>
+    
+    <div id="map"></div>
+    <div id="tooltip" class="tooltip"></div>
+    
+    <button id="explore-btn">EXPLORE</button>
+  </div>
+
+  <script>
+    // Exact location coordinates from Aarunya source
+    const WORLD_CENTER = { lat: 20, lng: 0 };
+    const INDIA_CENTER = { lat: 20, lng: 78 };
+    const GWALIOR_CENTER = { lat: 26.2, lng: 78.15 };
+    const MITS_CENTER = { lat: 26.23027, lng: 78.20717 };
+    
+    // Using the same Mapbox token logic from Aarunya App
+    const mbTokenPart1 = "pk.eyJ1IjoibmFpdGlrMTUiLCJhIjoiY21rcnl4c3huMTN";
+    const mbTokenPart2 = "zczNjcXI0NXJtYWJnbyJ9.gtvh5cp45HExNYhckFmmIQ";
+    mapboxgl.accessToken = mbTokenPart1 + mbTokenPart2;
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [WORLD_CENTER.lng, WORLD_CENTER.lat],
+      zoom: 1.5,
+      pitch: 0,
+      bearing: 0,
+      antialias: true
+    });
+
+    const loader = document.getElementById('loader');
+    const exploreBtn = document.getElementById('explore-btn');
+    const tooltip = document.getElementById('tooltip');
+
+    map.on('load', () => {
+      // Fade out loader once map loaded
+      loader.style.opacity = '0';
+      setTimeout(() => loader.remove(), 500);
+
+      // Start animation sequence
+      setTimeout(() => {
+        map.flyTo({ center: [INDIA_CENTER.lng, INDIA_CENTER.lat], zoom: 4, pitch: 0, duration: 1000 });
+        
+        setTimeout(() => {
+          map.flyTo({ center: [GWALIOR_CENTER.lng, GWALIOR_CENTER.lat], zoom: 10, pitch: 0, duration: 1000 });
+          
+          setTimeout(() => {
+            map.flyTo({ center: [MITS_CENTER.lng, MITS_CENTER.lat], zoom: 17, pitch: 45, bearing: 0, duration: 1000 });
+          }, 1000);
+        }, 1000);
+      }, 1000);
+
+      // Show explore button exactly after 4s total
+      setTimeout(() => {
+        exploreBtn.classList.add('visible');
+      }, 4000);
+
+      // Exact 3D Buildings Configuration
+      if (!map.getLayer('3d-buildings')) {
+        map.addLayer({
+          id: '3d-buildings',
+          source: 'composite',
+          'source-layer': 'building',
+          type: 'fill-extrusion',
+          paint: {
+            'fill-extrusion-color': '#8B8B8B',
+            'fill-extrusion-height': [
+              'interpolate', ['linear'], ['zoom'],
+              15, 0,
+              15.05, ['get', 'height']
+            ],
+            'fill-extrusion-base': [
+              'interpolate', ['linear'], ['zoom'],
+              15, 0,
+              15.05, ['get', 'min_height']
+            ],
+            'fill-extrusion-opacity': 0.85
+          }
+        }, 'waterway-label');
+      }
+
+      // Hover handling identical to source
+      map.on('mousemove', '3d-buildings', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const name = (e.features && e.features[0] && e.features[0].properties.name) ? e.features[0].properties.name : 'Building';
+        tooltip.innerHTML = name;
+        tooltip.style.display = 'block';
+        tooltip.style.left = e.point.x + 15 + 'px';
+        tooltip.style.top = e.point.y + 15 + 'px';
+      });
+
+      map.on('mouseleave', '3d-buildings', () => {
+        map.getCanvas().style.cursor = 'default';
+        tooltip.style.display = 'none';
+      });
+      
+      exploreBtn.addEventListener('click', () => {
+         // Because we are inside a modal in Virtual Tour, we notify parent to close it
+         exploreBtn.style.opacity = '0';
+         setTimeout(() => exploreBtn.remove(), 300);
+         if(window.parent && window.parent !== window) {
+             window.parent.postMessage({ type: 'CLOSE_MAP_MODAL' }, '*');
+         }
+      });
+    });
+  </script>
+</body>
+</html>

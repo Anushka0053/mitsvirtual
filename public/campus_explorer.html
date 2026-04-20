@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MITS 3D Campus Explorer</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 0; overflow: hidden; background-color: #050510; font-family: 'Inter', sans-serif;
+    }
+    #canvas-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+    }
+    #ui-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none;
+    }
+    .building-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      background: rgba(10, 15, 30, 0.95);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px; padding: 4px 12px;
+      color: white; font-size: 11px; font-weight: bold;
+      pointer-events: auto; cursor: pointer;
+      backdrop-filter: blur(8px); transition: transform 0.2s, background 0.2s;
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .building-label:hover {
+      background: rgba(30, 40, 70, 0.98); transform: translate(-50%, -50%) scale(1.05); z-index: 10;
+    }
+    .label-dot { width: 6px; height: 6px; border-radius: 50%; box-shadow: 0 0 5px currentColor; }
+    
+    #info-panel {
+      position: absolute; bottom: -250px; left: 50%; transform: translateX(-50%);
+      background: rgba(10, 15, 30, 0.95); border: 1px solid #bc13fe; box-shadow: 0 0 30px rgba(188, 19, 254, 0.2);
+      border-radius: 12px; padding: 25px; width: 350px; color: white;
+      transition: bottom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: auto;
+    }
+    #info-panel.visible { bottom: 40px; }
+    #panel-title { font-size: 20px; margin: 0 0 5px 0; color: #fff; }
+    #panel-desc { font-size: 13px; color: #a1a1aa; line-height: 1.6; margin: 10px 0 0 0; }
+    #panel-type { font-size: 10px; color: #bc13fe; text-transform: uppercase; letter-spacing: 1px; margin: 0;}
+    #enter-building-btn {
+      margin-top: 15px; width: 100%; padding: 12px;
+      background: linear-gradient(90deg, #BC13FE, #00FFFF);
+      border: none; border-radius: 8px; color: white;
+      font-weight: bold; cursor: pointer; display: none;
+      box-shadow: 0 4px 15px rgba(188, 19, 254, 0.4);
+      transition: transform 0.2s;
+    }
+    #enter-building-btn:hover { transform: translateY(-2px); }
+    #panel-close {
+      position: absolute; right: 15px; top: 15px; background: rgba(255,255,255,0.1); border: none; color: white;
+      cursor: pointer; font-size: 16px; width: 28px; height: 28px; border-radius: 50%; display:flex; align-items:center; justify-content:center;
+    }
+    #panel-close:hover { background: rgba(255,255,255,0.2); }
+    
+    #loader {
+      position: absolute; top:0; left:0; width:100%; height:100%; 
+      background: #050510; z-index: 50; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; transition: opacity 1s;
+    }
+    .spinner { width: 50px; height: 50px; border: 4px solid #facc15; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="spinner"></div>
+    <p style="color:#ffffff; margin-top: 20px; letter-spacing: 3px; font-size: 12px; font-weight: bold;">INITIALIZING 3D ENGINE...</p>
+  </div>
+  <div id="canvas-container"></div>
+  <div id="ui-container">
+    <div id="labels-container"></div>
+    <div id="info-panel">
+      <button id="panel-close" onclick="closePanel()">×</button>
+      <h3 id="panel-title">Building</h3>
+      <p id="panel-type">Category</p>
+      <p id="panel-desc">Description</p>
+      <button id="enter-building-btn" onclick="enterBuilding()">Explore Inside</button>
+    </div>
+  </div>
+
+  <script>
+    // --- EXACT AARUNYA THEME ---
+    const THEME = {
+      primary: '#BC13FE',
+      secondary: '#00FFFF',
+      building: '#E8E0D8',
+      roof: '#4A4A4A',
+      grass: '#2D5A27',
+      road: '#1A1A1A',
+      windowFrame: '#555555',
+      windowLit: '#FFE4A8'
+    };
+
+    // --- EXACT BUILDINGS DATA ---
+    const BUILDINGS = [
+      { id: 'cse', name: 'CSE & IT Department', x: -4, z: -10, w: 10, d: 8, h: 4, type: 'complex', color: THEME.building },
+      { id: 'cse-a1', name: 'CSE Annex 1', x: -4, z: -2, w: 8, d: 4, h: 3, type: 'complex', color: THEME.building },
+      { id: 'cse-a2', name: 'CSE Annex 2', x: -14, z: -2, w: 8, d: 4, h: 3, type: 'complex', color: THEME.building },
+      { id: 'ai', name: 'AI department', x: -2, z: 6, w: 8, d: 5, h: 8, type: 'academic', color: '#D8DDE8' },
+      { id: 'gkm', name: 'Gole Ka Mandir Square', x: 40, z: -35, w: 12, d: 12, h: 0.3, type: 'landmark', color: '#444444' },
+      { id: 'girls', name: 'Girls Hostel', x: 22, z: 29, w: 8, d: 8, h: 7, type: 'hostel_girls', color: '#e0c0e0' },
+      { id: 'boys', name: 'Boys Hostel', x: -15, z: 40, w: 8, d: 10, h: 7, type: 'hostel_boys', color: '#c0d0e0' },
+      { id: 'power', name: 'Power Station', x: -18, z: 22, w: 6, d: 8, h: 0.5, type: 'power', color: '#555' },
+      { id: 'library', name: 'Central Library', x: -18, z: -12, w: 6, d: 6, h: 4, type: 'complex', color: THEME.building },
+      { id: 'stage', name: 'Stage Ground', x: -14, z: -20, w: 10, d: 6, h: 0.8, type: 'stage', color: '#888' },
+      { id: 'football', name: 'Football Ground', x: 0, z: 22, w: 30, d: 15, h: 0.1, type: 'landmark', color: '#1B4D17' },
+      { id: 'biotech', name: 'Biotech Dept', x: 15, z: -11, w: 6, d: 6, h: 4, type: 'academic', color: THEME.building },
+      { id: 'disp', name: 'Dispensary', x: 11, z: -3.5, w: 4, d: 4, h: 2, type: 'academic', color: THEME.building },
+      { id: 'admin', name: 'Admission Sector', x: 18, z: 0, w: 4, d: 12, h: 2, type: 'academic', color: THEME.building },
+      { id: 'amul', name: 'Amul Parlor', x: 7, z: -1.5, w: 2, d: 2, h: 1, type: 'academic', color: THEME.building },
+      { id: 'gym', name: 'Gymnasium', x: 7, z: 3, w: 4, d: 3, h: 1.5, type: 'academic', color: THEME.building },
+      { id: 'arch', name: 'Architecture Dept', x: -12, z: -6.5, w: 5, d: 5, h: 4, type: 'complex', color: THEME.building },
+      { id: 'mech', name: 'Mechanical Dept', x: 2, z: -7.25, w: 4, d: 4, h: 4, type: 'complex', color: THEME.building },
+      { id: 'workshop', name: 'Mechanical Workshop', x: 0, z: 12, w: 8, d: 4, h: 3, type: 'complex', color: THEME.building },
+      { id: 'canteen', name: 'Canteen', x: -18, z: -17, w: 4, d: 4, h: 2, type: 'academic', color: THEME.building },
+      { id: 'parking', name: 'Parking', x: -24, z: -8, w: 8, d: 12, h: 0.1, type: 'parking', color: '#333' },
+      { id: 'statue', name: 'Statue base', x: 15, z: -18.5, w: 4, d: 4, h: 0.1, type: 'statue', color: THEME.grass },
+      { id: 'gate1', name: 'MITS Main Gate', x: 5, z: -20, w: 6, d: 2, h: 5, type: 'gate', color: '#5b75a6' },
+      { id: 'gate2', name: 'Diamond Jubilee Gate', x: -23, z: 8, w: 2, d: 8, h: 5, type: 'gate', color: '#5b75a6' },
+    ];
+
+    const ROADS = [
+      { start: [-22, -26], end: [23, -26], width: 2 },
+      { start: [5, -27], end: [5, 11], width: 2 },
+      { start: [22, -25], end: [22, 25], width: 2 },
+      { start: [-23, -27], end: [-23, 33.75], width: 2 },
+      { start: [-23, 10], end: [23, 10], width: 2 },
+      { start: [-23, 33], end: [-15, 33], width: 1.5 },
+      // GKM Square roads
+      { start: [40, -35], end: [40, 60], width: 5 },
+      { start: [-40, -35], end: [-40, 60], width: 5 },
+      { start: [40, -35], end: [40, -60], width: 5 },
+      { start: [-40, -35], end: [-40, -60], width: 5 },
+      { start: [40, -35], end: [-60, -35], width: 5 },
+      { start: [40, 50], end: [-60, 50], width: 5 },
+      { start: [40, -35], end: [60, -35], width: 5 },
+      { start: [40, 50], end: [60, 50], width: 5 }
+    ];
+
+    const LABELS_GROUND = [
+      { text: "HOSTEL ZONE", x: 3, z: 35, rot: 0, size: 5, col: "#ffffff", o: 0.15 },
+      { text: "ACADEMIC BLOCK", x: -9, z: 8, rot: 0, size: 2, col: "#d8cccc", o: 0.25 },
+      { text: "FOOTBALL GROUND", x: 0, z: 22, rot: 0, size: 3, col: "#ffffff", o: 0.3 },
+      { text: "MELA GROUND SECTOR", x: -45, z: 0, rot: Math.PI/2, size: 4, col: "#cccccc", o: 0.1 },
+      { text: "RESIDENCY AREA", x: 50, z: -20, rot: -Math.PI/2, size: 4, col: "#cccccc", o: 0.1 },
+      { text: "INDUSTRIAL AREA", x: -40, z: 50, rot: 0, size: 4, col: "#aaaaaa", o: 0.1 },
+      { text: "MELA ROAD", x: -25, z: 0, rot: Math.PI/2, size: 2, col: THEME.primary, o: 0.8 }
+    ];
+
+    let scene, camera, renderer, raycaster, mouse;
+    let meshes = [], labels = [];
+    const camTarget = { th: Math.PI/4, ph: Math.PI/3, r: 90 };
+    const camState = { th: Math.PI/4, ph: Math.PI/3, r: 90 };
+    let focusPoint = new THREE.Vector3(0,0,0);
+    let targetFocus = new THREE.Vector3(0,0,0);
+    let isDragging = false, lastX, lastY;
+    let currentBuildingId = null;
+    let routeLine = null;
+    let routeParticles = [];
+    let routeAnimation = null;
+    
+    // Create textures procedurally like React version
+    function createTextures() {
+      // 1. Realistic Facade Texture
+      const wC = document.createElement('canvas');
+      wC.width = 512; wC.height = 512;
+      const ctx = wC.getContext('2d');
+      ctx.fillStyle = '#D6D6D6'; ctx.fillRect(0,0,512,512);
+      for(let i=0; i<3000; i++) {
+        ctx.fillStyle = Math.random()>0.5?'rgba(255,255,255,0.05)':'rgba(0,0,0,0.05)';
+        ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+      }
+      const rows=4, cols=4, gap=20;
+      const ww = (512-(cols+1)*gap)/cols;
+      const wh = (512-(rows+1)*gap)/rows;
+      for(let r=0; r<rows; r++) {
+        for(let c=0; c<cols; c++) {
+          const wx = gap + c*(ww+gap); const wy = gap + r*(wh+gap);
+          ctx.fillStyle = THEME.windowFrame; ctx.fillRect(wx-2, wy-2, ww+4, wh+4);
+          const grad = ctx.createLinearGradient(wx,wy,wx,wy+wh);
+          grad.addColorStop(0,'#2b3a42'); grad.addColorStop(0.5,'#4b6cb7'); grad.addColorStop(1,'#182848');
+          ctx.fillStyle = grad; ctx.fillRect(wx, wy, ww, wh);
+        }
+      }
+      const winTex = new THREE.CanvasTexture(wC);
+      winTex.wrapS = winTex.wrapT = THREE.RepeatWrapping; winTex.repeat.set(3,3);
+
+      // Gate Grid Texture
+      const gC = document.createElement('canvas');
+      gC.width = 256; gC.height = 256;
+      const gtx = gC.getContext('2d');
+      gtx.fillStyle = '#6b85b6'; gtx.fillRect(0,0,256,256);
+      gtx.strokeStyle = '#fff'; gtx.lineWidth = 4;
+      for(let i=0; i<=256; i+=16) {
+        gtx.beginPath(); gtx.moveTo(i,0); gtx.lineTo(i,256); gtx.stroke();
+        gtx.beginPath(); gtx.moveTo(0,i); gtx.lineTo(256,i); gtx.stroke();
+      }
+      const gateTex = new THREE.CanvasTexture(gC);
+      gateTex.wrapS = gateTex.wrapT = THREE.RepeatWrapping;
+      gateTex.repeat.set(2, 2);
+
+      // 2. Road Texture
+      const rC = document.createElement('canvas');
+      rC.width=512; rC.height=512;
+      const rctx = rC.getContext('2d');
+      rctx.fillStyle = THEME.road; rctx.fillRect(0,0,512,512);
+      for(let i=0; i<5000; i++) {
+        rctx.fillStyle = Math.random()>0.5?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.1)';
+        rctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+      }
+      rctx.strokeStyle = '#fff'; rctx.setLineDash([30,30]); rctx.lineWidth=8;
+      rctx.beginPath(); rctx.moveTo(256,0); rctx.lineTo(256,512); rctx.stroke();
+      rctx.setLineDash([]); rctx.lineWidth=6;
+      rctx.beginPath(); rctx.moveTo(20,0); rctx.lineTo(20,512); rctx.stroke();
+      rctx.beginPath(); rctx.moveTo(492,0); rctx.lineTo(492,512); rctx.stroke();
+      const roadTex = new THREE.CanvasTexture(rC);
+      roadTex.wrapS = roadTex.wrapT = THREE.RepeatWrapping;
+      roadTex.repeat.set(1, 10);
+      
+      return { winTex, roadTex, gateTex };
+    }
+
+    function init() {
+      const tex = createTextures();
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050510);
+      scene.fog = new THREE.FogExp2(0x050510, 0.012);
+
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      dirLight.position.set(20, 50, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
+      dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 150;
+      dirLight.shadow.camera.left = -50; dirLight.shadow.camera.right = 50;
+      dirLight.shadow.camera.top = 50; dirLight.shadow.camera.bottom = -50;
+      scene.add(dirLight);
+
+      // Grass Ground
+      const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(250, 250),
+        new THREE.MeshStandardMaterial({ color: THEME.grass, roughness: 0.9 })
+      );
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      // Roads
+      const roadMat = new THREE.MeshStandardMaterial({ map: tex.roadTex, roughness: 0.8 });
+      ROADS.forEach(r => {
+        const dx = r.end[0] - r.start[0];
+        const dz = r.end[1] - r.start[1];
+        const len = Math.sqrt(dx*dx + dz*dz) + r.width;
+        const angle = Math.atan2(dz, dx);
+        
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(len, r.width), roadMat.clone());
+        road.rotation.x = -Math.PI/2;
+        road.rotation.z = -angle; 
+        road.material.map = roadMat.map.clone();
+        road.material.map.repeat.set(len/10, 1);
+        road.material.map.needsUpdate = true;
+        
+        road.position.set(r.start[0] + dx/2, 0.05, r.start[1] + dz/2);
+        road.receiveShadow = true;
+        scene.add(road);
+      });
+
+      // Ground Texts
+      LABELS_GROUND.forEach(g => {
+        const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = g.col; ctx.font = "bold 80px sans-serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(g.text, 512, 64);
+        const gmat = new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: g.o });
+        const gmesh = new THREE.Mesh(new THREE.PlaneGeometry(g.size*g.text.length*0.7, g.size*2), gmat);
+        gmesh.rotation.x = -Math.PI/2;
+        gmesh.rotation.z = g.rot;
+        gmesh.position.set(g.x, 0.1, g.z);
+        scene.add(gmesh);
+      });
+
+      const fencePostGeo = new THREE.BoxGeometry(0.15, 0.8, 0.15);
+
+      function createComplex(b) {
+        const group = new THREE.Group();
+        group.position.set(b.x, -b.h/2, b.z); 
+
+        // Gate Logic
+        if(b.type === 'gate') {
+           const isHorizontal = b.w > b.d;
+           const thick = isHorizontal ? b.d : b.w;
+           const span = isHorizontal ? b.w : b.d;
+           
+           const gMat = new THREE.MeshStandardMaterial({ map: tex.gateTex, roughness: 0.7 });
+           
+           const p1 = new THREE.Mesh(new THREE.BoxGeometry(thick, b.h, thick), gMat);
+           const p2 = new THREE.Mesh(new THREE.BoxGeometry(thick, b.h, thick), gMat);
+           const pT = new THREE.Mesh(new THREE.BoxGeometry(isHorizontal?span+thick:thick, thick, isHorizontal?thick:span+thick), gMat);
+           
+           if(isHorizontal) { p1.position.x = -span/2; p2.position.x = span/2; pT.position.y = b.h/2-thick/2; }
+           else { p1.position.z = -span/2; p2.position.z = span/2; pT.position.y = b.h/2-thick/2; }
+           
+           p1.position.y = 0; p2.position.y = 0;
+           p1.castShadow = p2.castShadow = pT.castShadow = true;
+           group.add(p1); group.add(p2); group.add(pT);
+        }
+        // Statue logic
+        else if(b.type === 'statue') {
+           const base = new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.2, b.d), new THREE.MeshStandardMaterial({color:b.color}));
+           base.position.y = -b.h/2 + 0.1; group.add(base);
+           const ped = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), new THREE.MeshStandardMaterial({color:'#ccc'}));
+           ped.position.y = 0.75-b.h/2 + 0.2; group.add(ped);
+           const stat = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.8), new THREE.MeshStandardMaterial({color:'#fff'}));
+           stat.position.y = 1.5+0.9-b.h/2 + 0.2; group.add(stat);
+           // small fence
+           for(let x=-b.w/2; x<=b.w/2; x+=2) {
+             const fp1 = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp1.position.set(x, -b.h/2+0.5, b.d/2); group.add(fp1);
+             const fp2 = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp2.position.set(x, -b.h/2+0.5, -b.d/2); group.add(fp2);
+           }
+           for(let z=-b.d/2+2; z<=b.d/2-2; z+=2) {
+             const fp1 = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp1.position.set(b.w/2, -b.h/2+0.5, z); group.add(fp1);
+             const fp2 = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp2.position.set(-b.w/2, -b.h/2+0.5, z); group.add(fp2);
+           }
+        }
+        // Stage Ground
+        else if(b.type === 'stage') {
+           const stg = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), new THREE.MeshStandardMaterial({color:b.color, roughness:0.9}));
+           const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w, 0.2, b.d*0.4), new THREE.MeshStandardMaterial({color:'#ccc'}));
+           roof.position.set(0, b.h/2+1.5, -b.d*0.3);
+           const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), new THREE.MeshStandardMaterial({color:'#555'})); p1.position.set(-b.w/2+0.5, b.h/2+0.75, -b.d*0.3);
+           const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.5, 0.2), new THREE.MeshStandardMaterial({color:'#555'})); p2.position.set(b.w/2-0.5, b.h/2+0.75, -b.d*0.3);
+           group.add(stg); group.add(roof); group.add(p1); group.add(p2);
+        }
+        // Normal building
+        else if(b.id === 'parking' || b.type === 'landmark') {
+          // Do nothing inside the group, we will render fences below
+          if(b.id === 'parking') {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), new THREE.MeshStandardMaterial({color:'#333'}));
+            group.add(p);
+          }
+        }
+        else {
+           const isWall = b.type==='complex' || b.type==='academic';
+           const mat = new THREE.MeshStandardMaterial({ 
+             color: b.color, roughness: 0.8, 
+             map: isWall ? tex.winTex : null 
+           });
+           
+           const main = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mat);
+           main.castShadow = main.receiveShadow = true;
+           group.add(main);
+
+           // Water tank / Roof detail
+           if(isWall) {
+              const roof = new THREE.Mesh(new THREE.BoxGeometry(b.w+0.15, 0.2, b.d+0.15), new THREE.MeshStandardMaterial({color:THEME.roof}));
+              roof.position.y = b.h/2;
+              group.add(roof);
+
+              if(Math.random()>0.2) {
+                const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,0.8,16), new THREE.MeshStandardMaterial({color:'#111'}));
+                tank.position.set(b.w/4 * (Math.random()>0.5?1:-1), b.h/2 + 0.6, b.d/4 * (Math.random()>0.5?1:-1));
+                const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.1), new THREE.MeshStandardMaterial({color:'#888'})); l1.position.set(tank.position.x-0.4, b.h/2+0.15, tank.position.z); group.add(l1);
+                const l2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.1), new THREE.MeshStandardMaterial({color:'#888'})); l2.position.set(tank.position.x+0.4, b.h/2+0.15, tank.position.z); group.add(l2);
+                group.add(tank);
+              }
+           }
+           
+           // Power Station custom mesh
+           if(b.type === 'power') {
+              const pMat = new THREE.MeshBasicMaterial({color:'#1a1a1a'});
+              const pA = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 6, 8), pMat); pA.position.set(-1.5, 3, 0);
+              const pB = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 6, 8), pMat); pB.position.set(1.5, 3, 0);
+              const pR1 = new THREE.Mesh(new THREE.BoxGeometry(5, 0.1, 0.1), pMat); pR1.position.set(0, 2.5, 0);
+              const pR2 = new THREE.Mesh(new THREE.BoxGeometry(4, 0.1, 0.1), pMat); pR2.position.set(0, 4.5, 0);
+              group.add(pA); group.add(pB); group.add(pR1); group.add(pR2);
+           }
+
+           // Hostels customization
+           if(b.type.startsWith('hostel')) {
+             const blocks = [-b.w/3.5, 0, b.w/3.5];
+             blocks.forEach((bx, idx) => {
+               const h = new THREE.Mesh(new THREE.BoxGeometry(b.w/4, b.h+1, b.d/2.2), new THREE.MeshStandardMaterial({color:b.color, roughness:0.6}));
+               h.position.set(bx, 0.5, b.d/4);
+               h.castShadow = true;
+               group.add(h);
+
+               // Windows
+               const wCol = b.type==='hostel_girls'?0xFF1493:0x1E90FF; // Pink/Blue
+               const wMat = new THREE.MeshBasicMaterial({color:wCol});
+               for(let hy=1; hy<b.h; hy++) {
+                 const wM = new THREE.Mesh(new THREE.BoxGeometry(0.6,0.6,0.1), wMat);
+                 wM.position.set(bx, -b.h/2 + hy, b.d/2 + 0.05);
+                 group.add(wM);
+               }
+             });
+           }
+        }
+
+        scene.add(group);
+        const dummy = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), new THREE.MeshBasicMaterial({visible:false}));
+        dummy.position.set(b.x, b.h/2, b.z);
+        scene.add(dummy);
+        dummy.userData = { ...b, originalY: b.h/2, group: group };
+        meshes.push(dummy);
+
+        // Fences around landmarks/grass
+        if(b.type === 'landmark' && b.color === THEME.grass) {
+           const fG = new THREE.Group();
+           for(let x=-b.w/2; x<=b.w/2; x+=2.5) {
+             const fp = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp.position.set(x, 0.4, b.d/2); fG.add(fp.clone()); fp.position.z = -b.d/2; fG.add(fp);
+           }
+           for(let z=-b.d/2+2.5; z<=b.d/2-2.5; z+=2.5) {
+             const fp = new THREE.Mesh(fencePostGeo, new THREE.MeshStandardMaterial({color:'#555'})); fp.position.set(b.w/2, 0.4, z); fG.add(fp.clone()); fp.position.x = -b.w/2; fG.add(fp);
+           }
+           fG.position.set(b.x, 0, b.z);
+           scene.add(fG);
+        }
+
+        // HTML Label
+        if (b.type !== 'landmark' || b.name.includes("Ground") || b.id === 'parking') {
+          const el = document.createElement('div');
+          el.className = 'building-label';
+          const dotC = b.type==='hostel_girls'?'#FF1493': b.type==='hostel_boys'?'#1E90FF': '#bc13fe';
+          el.innerHTML = `<div class="label-dot" style="background:${dotC}; color:${dotC}"></div>${b.name}`;
+          el.onclick = () => selectBuilding(dummy);
+          document.getElementById('labels-container').appendChild(el);
+          labels.push({ el, mesh: dummy, pos: new THREE.Vector3() });
+        }
+      }
+
+      BUILDINGS.forEach(b => createComplex(b));
+
+      // Controls setup
+      const container = document.getElementById('canvas-container');
+      container.addEventListener('mousedown', e => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+      window.addEventListener('mouseup', () => { isDragging = false; });
+      container.addEventListener('mousemove', e => {
+        if(!isDragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        camTarget.th -= dx * 0.005;
+        camTarget.ph -= dy * 0.005;
+        camTarget.ph = Math.max(0.1, Math.min(Math.PI/2 - 0.05, camTarget.ph));
+        lastX = e.clientX; lastY = e.clientY;
+      });
+      container.addEventListener('wheel', e => {
+        camTarget.r += e.deltaY * 0.05;
+        camTarget.r = Math.max(20, Math.min(150, camTarget.r));
+      });
+
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      container.addEventListener('click', e => {
+        if (Math.abs(e.clientX - lastX) > 5) return; // Prevent drag-click
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(meshes);
+        if (intersects.length > 0) {
+          selectBuilding(intersects[0].object);
+        }
+      });
+      
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // Intro Animation
+      setTimeout(() => {
+        document.getElementById('loader').style.opacity = '0';
+        setTimeout(() => document.getElementById('loader').remove(), 1000);
+        
+        meshes.forEach((m, i) => {
+          anime({
+            targets: m.userData.group.position,
+            y: m.userData.originalY,
+            duration: 1500,
+            delay: i * 40,
+            easing: 'easeOutElastic(1, 0.5)'
+          });
+        });
+        
+        anime({
+          targets: camTarget,
+          ph: Math.PI/3,
+          r: 65,
+          duration: 3000,
+          easing: 'easeOutCubic'
+        });
+      }, 500);
+
+      animate();
+    }
+
+    function selectBuilding(mesh) {
+      document.getElementById('info-panel').classList.add('visible');
+      document.getElementById('panel-title').innerText = mesh.userData.name;
+      document.getElementById('panel-desc').innerText = mesh.userData.name + " is a prominent structure on the campus map.";
+      document.getElementById('panel-type').innerText = mesh.userData.type.replace('_',' ');
+      
+      currentBuildingId = mesh.userData.id;
+      const explorable = ['academic', 'complex', 'hostel_girls', 'hostel_boys'].includes(mesh.userData.type) || ['gate1', 'canteen'].includes(mesh.userData.id);
+      document.getElementById('enter-building-btn').style.display = explorable ? 'block' : 'none';
+      
+      anime({
+        targets: targetFocus,
+        x: mesh.position.x,
+        y: mesh.userData.h/2 + 2,
+        z: mesh.position.z,
+        duration: 800,
+        easing: 'easeOutCubic'
+      });
+      camTarget.r = Math.max(30, mesh.userData.w + 10);
+    }
+
+    function closePanel() {
+      document.getElementById('info-panel').classList.remove('visible');
+    }
+
+    function enterBuilding() {
+       if (currentBuildingId) {
+          window.parent.postMessage({ type: 'NAVIGATE_TO_SCENE', buildingId: currentBuildingId }, '*');
+       }
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data?.type === 'DRAW_ROUTE') {
+        drawRoute(e.data.startId, e.data.endId);
+      }
+    });
+
+    function drawRoute(startId, endId) {
+      if (routeLine) scene.remove(routeLine);
+      routeParticles.forEach(p => scene.remove(p));
+      routeParticles = [];
+      if (routeAnimation) routeAnimation.pause();
+      
+      const startMesh = meshes.find(m => m.userData.id === startId);
+      const endMesh = meshes.find(m => m.userData.id === endId);
+      if (!startMesh || !endMesh) return;
+
+      const sPos = startMesh.position.clone();
+      const ePos = endMesh.position.clone();
+      
+      const roadSegments = ROADS.map(r => ({ p1: {x: r.start[0], z: r.start[1]}, p2: {x: r.end[0], z: r.end[1]} }));
+      function getProj(p, a, b) {
+        const atob = { x: b.x - a.x, z: b.z - a.z };
+        const atop = { x: p.x - a.x, z: p.z - a.z };
+        const len2 = atob.x * atob.x + atob.z * atob.z;
+        if (len2 === 0) return a;
+        let t = Math.max(0, Math.min(1, (atop.x * atob.x + atop.z * atob.z) / len2));
+        return { x: a.x + atob.x * t, z: a.z + atob.z * t };
+      }
+
+      let pStart = null, minDistS = Infinity;
+      let pEnd = null, minDistE = Infinity;
+      roadSegments.forEach(seg => {
+         let projS = getProj(sPos, seg.p1, seg.p2);
+         let dS = Math.hypot(sPos.x - projS.x, sPos.z - projS.z);
+         if(dS < minDistS) { minDistS = dS; pStart = projS; }
+         
+         let projE = getProj(ePos, seg.p1, seg.p2);
+         let dE = Math.hypot(ePos.x - projE.x, ePos.z - projE.z);
+         if(dE < minDistE) { minDistE = dE; pEnd = projE; }
+      });
+
+      let nodesMap = new Map();
+      function addNode(x, z) {
+         const key = `${x.toFixed(2)},${z.toFixed(2)}`;
+         if (!nodesMap.has(key)) nodesMap.set(key, {id: key, x: x, z: z, edges: new Set()});
+         return nodesMap.get(key);
+      }
+      
+      roadSegments.forEach(seg => {
+         addNode(seg.p1.x, seg.p1.z);
+         addNode(seg.p2.x, seg.p2.z);
+         roadSegments.forEach(s2 => {
+            const isSegVert = seg.p1.x === seg.p2.x;
+            const isS2Vert = s2.p1.x === s2.p2.x;
+            if(isSegVert && !isS2Vert) {
+               if(seg.p1.x >= Math.min(s2.p1.x, s2.p2.x) && seg.p1.x <= Math.max(s2.p1.x, s2.p2.x) &&
+                  s2.p1.z >= Math.min(seg.p1.z, seg.p2.z) && s2.p1.z <= Math.max(seg.p1.z, seg.p2.z)) {
+                  addNode(seg.p1.x, s2.p1.z);
+               }
+            }
+         });
+      });
+
+      const nStart = addNode(pStart.x, pStart.z);
+      const nEnd = addNode(pEnd.x, pEnd.z);
+
+      let allNodesList = Array.from(nodesMap.values());
+      roadSegments.forEach(seg => {
+         const isVert = seg.p1.x === seg.p2.x;
+         let onSeg = allNodesList.filter(n => {
+            if (isVert) return Math.abs(n.x - seg.p1.x) < 0.1 && n.z >= Math.min(seg.p1.z, seg.p2.z)-0.1 && n.z <= Math.max(seg.p1.z, seg.p2.z)+0.1;
+            else return Math.abs(n.z - seg.p1.z) < 0.1 && n.x >= Math.min(seg.p1.x, seg.p2.x)-0.1 && n.x <= Math.max(seg.p1.x, seg.p2.x)+0.1;
+         });
+         onSeg.sort((a,b) => isVert ? a.z - b.z : a.x - b.x);
+         for(let i=0; i<onSeg.length-1; i++) {
+            let n1 = onSeg[i], n2 = onSeg[i+1];
+            let d = Math.hypot(n1.x-n2.x, n1.z-n2.z);
+            n1.edges.add({to: n2.id, weight: d});
+            n2.edges.add({to: n1.id, weight: d});
+         }
+      });
+
+      let dist = {}, prev = {};
+      let q = [];
+      allNodesList.forEach(n => { dist[n.id] = Infinity; prev[n.id] = null; q.push(n.id); });
+      dist[nStart.id] = 0;
+      
+      while(q.length > 0) {
+         q.sort((a,b) => dist[a] - dist[b]);
+         let uStr = q.shift();
+         if(uStr === nEnd.id) break;
+         if(dist[uStr] === Infinity) break;
+         
+         let uNode = nodesMap.get(uStr);
+         uNode.edges.forEach(edge => {
+            if(q.includes(edge.to)) {
+               let alt = dist[uStr] + edge.weight;
+               if(alt < dist[edge.to]) {
+                  dist[edge.to] = alt;
+                  prev[edge.to] = uStr;
+               }
+            }
+         });
+      }
+
+      let pathNodes = [];
+      let u = nEnd.id;
+      if(prev[u] || u === nStart.id) {
+         while(u) {
+            let nd = nodesMap.get(u);
+            pathNodes.unshift(new THREE.Vector3(nd.x, 0.1, nd.z));
+            u = prev[u];
+         }
+      }
+
+      if (pathNodes.length === 0) {
+          pathNodes.push(new THREE.Vector3(sPos.x, 0.1, sPos.z));
+          pathNodes.push(new THREE.Vector3(pStart.x, 0.1, pStart.z));
+          pathNodes.push(new THREE.Vector3(pEnd.x, 0.1, pEnd.z));
+          pathNodes.push(new THREE.Vector3(ePos.x, 0.1, ePos.z));
+      } else {
+          pathNodes.unshift(new THREE.Vector3(sPos.x, 0.1, sPos.z));
+          pathNodes.push(new THREE.Vector3(ePos.x, 0.1, ePos.z));
+      }
+      
+      let splineDist = 0;
+      for(let i=0; i<pathNodes.length-1; i++) splineDist += pathNodes[i].distanceTo(pathNodes[i+1]);
+
+      const curve = new THREE.CatmullRomCurve3(pathNodes, false, 'catmullrom', 0.1);
+      
+      const tubeGeometry = new THREE.TubeGeometry(curve, Math.max(64, Math.floor(splineDist*3)), 0.6, 8, false);
+      // Solid opaque color: Bright Yellow
+      const material = new THREE.MeshBasicMaterial({ color: 0xFFEA00, transparent: false });
+      routeLine = new THREE.Mesh(tubeGeometry, material);
+      routeLine.position.y = 0.15; 
+      scene.add(routeLine);
+      
+      targetFocus.copy(sPos.clone().lerp(ePos, 0.5));
+      targetFocus.y = 0;
+      camTarget.r = sPos.distanceTo(ePos) * 1.5 + 40;
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      camState.th += (camTarget.th - camState.th) * 0.1;
+      camState.ph += (camTarget.ph - camState.ph) * 0.1;
+      camState.r += (camTarget.r - camState.r) * 0.1;
+      
+      focusPoint.lerp(targetFocus, 0.1);
+
+      camera.position.x = focusPoint.x + camState.r * Math.sin(camState.ph) * Math.sin(camState.th);
+      camera.position.y = focusPoint.y + camState.r * Math.cos(camState.ph);
+      camera.position.z = focusPoint.z + camState.r * Math.sin(camState.ph) * Math.cos(camState.th);
+      camera.lookAt(focusPoint);
+
+      labels.forEach(l => {
+        l.pos.copy(l.mesh.position);
+        l.pos.y += l.mesh.userData.h/2 + 2; 
+        const tempV = l.pos.clone().project(camera);
+        if(tempV.z > 1) {
+          l.el.style.display = 'none';
+          return;
+        }
+        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (1 - (tempV.y * 0.5 + 0.5)) * window.innerHeight;
+        
+        l.el.style.display = 'flex';
+        l.el.style.left = x + 'px';
+        l.el.style.top = y + 'px';
+        
+        const dist = camera.position.distanceTo(l.pos);
+        l.el.style.opacity = Math.max(0, 1 - (dist-90)/40);
+        l.el.style.pointerEvents = dist < 110 ? 'auto' : 'none';
+        
+        const s = Math.max(0.6, Math.min(1.2, 50/dist));
+        l.el.style.transform = `translate(-50%, -50%) scale(${s})`;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
