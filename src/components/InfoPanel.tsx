@@ -13,6 +13,7 @@ interface InfoPanelProps {
 const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelProps) => {
   const title = hotspot?.label || scene.title;
   const description = hotspot?.description || scene.description;
+  const toPublicAsset = (path: string) => path.startsWith('public/') ? `/${path.slice(7)}` : path;
 
   const staggerContainer = {
     hidden: { opacity: 0 },
@@ -93,7 +94,13 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
           <ExternalLink className="w-4 h-4 text-mits-gold" />
         </div>
         <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/10 bg-black/50 shrink-0">
-          <img src={faculty.photo} alt={faculty.name} className="w-full h-full object-cover" />
+          {faculty.photo ? (
+            <img src={toPublicAsset(faculty.photo)} alt={faculty.name} className="w-full h-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-white/70">
+              {faculty.name.charAt(0)}
+            </div>
+          )}
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white group-hover:text-mits-gold transition-colors">{faculty.name}</p>
@@ -307,7 +314,7 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                         </a>
                       </div>
                       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-mits-gold/50 bg-black/50 shrink-0">
-                        <img src="public/FACULTY/hodai.png" alt="Dr. Rajni Ranjan" className="w-full h-full object-cover" />
+                        <img src={toPublicAsset('public/FACULTY/hodai.png')} alt="Dr. Rajni Ranjan" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 text-center sm:text-left mt-2 sm:mt-0">
                         <h4 className="text-lg font-bold text-white">Dr. Rajni Ranjan Singh Makwana</h4>
@@ -453,7 +460,7 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                         </a>
                       </div>
                       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-mits-gold/50 bg-black/50 shrink-0">
-                        <img src="public/FACULTY/provice.png" alt="Dr. Manjaree Pandit" className="w-full h-full object-cover" />
+                        <img src={toPublicAsset('public/FACULTY/provice.png')} alt="Dr. Manjaree Pandit" className="w-full h-full object-cover" />
                       </div>
                       <div className="flex-1 text-center sm:text-left mt-2 sm:mt-0">
                         <h4 className="text-lg font-bold text-white">Dr. Manjaree Pandit</h4>
@@ -607,7 +614,7 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                         </a>
                       </div>
                       <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-mits-gold/50 bg-black/50 shrink-0">
-                        <img src="public/FACULTY/vice.png" alt="Dr. Rajindra Kumar Pandit" className="w-full h-full object-cover top-object" style={{objectPosition: 'top'}} />
+                        <img src={toPublicAsset('public/FACULTY/vice.png')} alt="Dr. Rajindra Kumar Pandit" className="w-full h-full object-cover top-object" style={{objectPosition: 'top'}} />
                       </div>
                       <div className="flex-1 text-center sm:text-left mt-2 sm:mt-0">
                         <h4 className="text-lg font-bold text-white">Dr. Rajindra Kumar Pandit</h4>
