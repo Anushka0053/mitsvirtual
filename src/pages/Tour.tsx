@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { scenes, getScene } from '@/data/scenes';
 import type { Hotspot } from '@/data/scenes';
 import PanoramaViewer from '@/components/PanoramaViewer';
@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 const Tour = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialScene = searchParams.get('scene') || 'main-gate';
   const [currentSceneId, setCurrentSceneId] = useState(getScene(initialScene) ? initialScene : 'main-gate');
@@ -38,17 +39,6 @@ const Tour = () => {
       setTimeout(() => setTransitioning(false), 100);
     }, 400);
   }, [currentSceneId]);
-
-  const handleBack = useCallback(() => {
-    if (history.length === 0) return;
-    setTransitioning(true);
-    setTimeout(() => {
-      const prevScene = history[history.length - 1];
-      setHistory(prev => prev.slice(0, -1));
-      setCurrentSceneId(prevScene);
-      setTimeout(() => setTransitioning(false), 100);
-    }, 400);
-  }, [history]);
 
   const handleShowInfo = useCallback((hotspot: Hotspot) => {
     setSelectedHotspot(hotspot);
@@ -88,15 +78,13 @@ const Tour = () => {
       />
 
       {/* Back Button */}
-      {history.length > 0 && (
-        <button 
-          onClick={handleBack}
-          className="absolute top-24 left-4 md:left-6 z-40 flex items-center gap-2 px-4 py-2 bg-mits-dark/80 backdrop-blur-md rounded-full border border-white/10 text-white hover:text-mits-gold hover:bg-white/10 hover:border-white/20 transition-all shadow-lg pointer-events-auto group"
-        >
-          <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-sm font-semibold tracking-wide">Back</span>
-        </button>
-      )}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-24 left-4 md:left-6 z-40 flex items-center gap-3 rounded-full border border-white/10 bg-[#1c2330]/88 px-5 py-3 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-md transition-all hover:bg-[#222b39]/92 hover:border-white/20 pointer-events-auto group"
+      >
+        <ChevronLeft className="h-5 w-5 transition-transform group-hover:-translate-x-1" />
+        <span className="text-sm font-semibold tracking-wide">Back</span>
+      </button>
 
       {/* Header */}
       <TourHeader

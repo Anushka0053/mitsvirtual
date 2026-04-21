@@ -470,10 +470,10 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                             <Mail className="w-3 h-3 text-white/40" />
                             <span className="text-xs text-white/70">manjaree_p@mitsgwalior.in</span>
                           </div>
-                          <div className="flex items-center gap-2">
+                          {/* <div className="flex items-center gap-2">
                             <Phone className="w-3 h-3 text-white/40" />
                             <span className="text-xs text-white/70">9826954902</span>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </div>
@@ -597,7 +597,7 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                 </motion.div>
               )}
 
-              {hotspot?.id === 'info-ai-vc' && (
+              {(hotspot?.id === 'info-ai-vc' || hotspot?.id === 'ai-3-vc-info') && (
                 <motion.div variants={staggerItem} className="space-y-6">
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-8 h-8 rounded-lg bg-mits-gold/10 flex items-center justify-center border border-mits-gold/20">
@@ -620,14 +620,14 @@ const InfoPanel = ({ scene, hotspot, isOpen, onClose, onNavigate }: InfoPanelPro
                         <h4 className="text-lg font-bold text-white">Dr. Rajindra Kumar Pandit</h4>
                         <p className="text-sm text-mits-gold mb-2">Vice-Chancellor</p>
                         <div className="flex flex-col gap-1 items-center sm:items-start">
-                          <div className="flex items-center gap-2">
+                          {/* <div className="flex items-center gap-2">
                             <Mail className="w-3 h-3 text-white/40" />
                             <span className="text-xs text-white/70">vicechancellor@mitsgwalior.in</span>
-                          </div>
-                          <div className="flex items-center gap-2">
+                          </div> */}
+                          {/* <div className="flex items-center gap-2">
                             <Phone className="w-3 h-3 text-white/40" />
                             <span className="text-xs text-white/70">0751-240-9354</span>
-                          </div>
+                          </div> */}
                         </div>
                       </div>
                     </div>

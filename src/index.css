@@ -93,10 +93,6 @@
     box-shadow: 0 22px 80px rgba(0, 0, 0, 0.28);
   }
 
-  .hotspot-pulse {
-    animation: hotspot-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-
   .hero-gradient {
     background: linear-gradient(
       135deg,
@@ -127,17 +123,7 @@
     border: 1px solid hsl(0 0% 100% / 0.12);
     backdrop-filter: blur(16px);
   }
-}
 
-@keyframes hotspot-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 hsl(var(--mits-gold) / 0.7);
-  }
-  50% {
-    transform: scale(1.1);
-    box-shadow: 0 0 0 12px hsl(var(--mits-gold) / 0);
-  }
 }
 
 @keyframes float {

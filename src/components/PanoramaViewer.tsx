@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import * as THREE from 'three';
 import type { Scene as SceneData, Hotspot } from '@/data/scenes';
-import { Navigation, Info, ChevronRight } from 'lucide-react';
+import { Info } from 'lucide-react';
 
 interface PanoramaViewerProps {
   scene: SceneData;
@@ -9,10 +9,42 @@ interface PanoramaViewerProps {
   onShowInfo: (hotspot: Hotspot) => void;
 }
 
+const isArrowHotspot = (label: string) =>
+  label === '\u2191' || label === '\u2193' || label === 'â†‘' || label === 'â†“';
+
+const getHotspotClasses = (hotspot: Hotspot) => {
+  if (hotspot.type === 'info') {
+    return {
+      container: 'bg-sky-100/78 border border-sky-200/90 shadow-[0_0_18px_rgba(125,211,252,0.28)] backdrop-blur-md',
+      glow: 'bg-sky-200/55 opacity-90',
+      text: 'text-slate-800',
+      icon: 'bg-white/55',
+      iconColor: 'text-slate-700',
+    };
+  }
+
+  if (hotspot.style === 'exit' || /exit|back/i.test(hotspot.label)) {
+    return {
+      container: 'bg-red-900/38 border border-red-500/55 shadow-[0_0_18px_rgba(127,29,29,0.32)] backdrop-blur-md',
+      glow: 'bg-red-700/30 opacity-90',
+      text: 'text-red-50',
+      icon: 'bg-red-100/18',
+      iconColor: 'text-red-50',
+    };
+  }
+
+  return {
+    container: 'bg-yellow-400/92 border border-yellow-200/95 shadow-[0_0_18px_rgba(250,204,21,0.34)] backdrop-blur-md',
+    glow: 'bg-yellow-200/55 opacity-90',
+    text: 'text-slate-950',
+    icon: 'bg-yellow-50/35',
+    iconColor: 'text-slate-950',
+  };
+};
+
 const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
-  const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const isUserInteracting = useRef(false);
   const lonRef = useRef(scene.initialYaw);
@@ -60,13 +92,10 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
     if (!containerRef.current) return;
     const container = containerRef.current;
 
-    // Setup
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 1, 1100);
     cameraRef.current = camera;
 
     const threeScene = new THREE.Scene();
-    sceneRef.current = threeScene;
-
     const geometry = new THREE.SphereGeometry(500, 60, 40);
     geometry.scale(-1, 1, 1);
 
@@ -90,7 +119,6 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
     lonRef.current = scene.initialYaw;
     latRef.current = scene.initialPitch;
 
-    // Events
     const onPointerDown = (e: PointerEvent) => {
       isUserInteracting.current = true;
       onPointerDownX.current = e.clientX;
@@ -128,8 +156,9 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
     container.addEventListener('wheel', onWheel, { passive: false });
     window.addEventListener('resize', onResize);
 
-    // Touch
-    let touchStartX = 0, touchStartY = 0;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 1) {
         touchStartX = e.touches[0].clientX;
@@ -139,18 +168,21 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
         isUserInteracting.current = true;
       }
     };
+
     const onTouchMove = (e: TouchEvent) => {
       if (!isUserInteracting.current || e.touches.length !== 1) return;
       lonRef.current = (touchStartX - e.touches[0].clientX) * 0.2 + onPointerDownLon.current;
       latRef.current = (e.touches[0].clientY - touchStartY) * 0.2 + onPointerDownLat.current;
     };
-    const onTouchEnd = () => { isUserInteracting.current = false; };
+
+    const onTouchEnd = () => {
+      isUserInteracting.current = false;
+    };
 
     container.addEventListener('touchstart', onTouchStart, { passive: true });
     container.addEventListener('touchmove', onTouchMove, { passive: true });
     container.addEventListener('touchend', onTouchEnd);
 
-    // Animate
     const animate = () => {
       animFrameRef.current = requestAnimationFrame(animate);
       if (!isUserInteracting.current) {
@@ -168,6 +200,7 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
       renderer.render(threeScene, camera);
       updateHotspots();
     };
+
     animate();
 
     return () => {
@@ -188,116 +221,80 @@ const PanoramaViewer = ({ scene, onNavigate, onShowInfo }: PanoramaViewerProps) 
     };
   }, [scene, updateHotspots]);
 
+  const renderHotspot = (hotspot: Hotspot, position: { left: string | number; top: string | number }) => {
+    const hotspotClasses = getHotspotClasses(hotspot);
+    const arrowHotspot = isArrowHotspot(hotspot.label);
+
+    return (
+      <button
+        key={hotspot.id}
+        className={`absolute z-10 -translate-x-1/2 -translate-y-1/2 ${hotspot.variant === 'small' ? 'scale-[0.7] origin-right' : ''}`}
+        style={position}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (hotspot.type === 'scene' && hotspot.targetScene) {
+            onNavigate(hotspot.targetScene);
+          } else {
+            onShowInfo(hotspot);
+          }
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <div
+          className={`
+            relative flex items-center justify-center gap-2 overflow-hidden
+            ${arrowHotspot ? 'h-11 w-11 rounded-full sm:h-12 sm:w-12' : 'max-w-[min(72vw,17rem)] rounded-[1rem] px-3.5 py-2 sm:max-w-none'}
+            ${hotspotClasses.container}
+          `}
+        >
+          <div className={`absolute inset-[-8px] rounded-full blur-md ${hotspotClasses.glow}`} />
+
+          {hotspot.type === 'info' && (
+            <div className={`relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${hotspotClasses.icon}`}>
+              <Info className={`h-3.5 w-3.5 ${hotspotClasses.iconColor}`} />
+            </div>
+          )}
+
+          <span
+            className={`${arrowHotspot ? 'text-[1.35rem] leading-none sm:text-[1.45rem]' : 'text-[0.82rem] sm:text-[0.9rem]'} relative z-10 whitespace-nowrap font-semibold tracking-wide ${hotspotClasses.text}`}
+          >
+            {hotspot.label}
+          </span>
+        </div>
+      </button>
+    );
+  };
+
   if (scene.type === 'normal') {
     return (
-      <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden select-none">
-        <img src={scene.image} alt={scene.title} className="w-full h-full object-fill pointer-events-none" />
+      <div className="relative flex h-full w-full select-none items-center justify-center overflow-hidden bg-black">
+        <img src={scene.image} alt={scene.title} className="h-full w-full object-fill pointer-events-none" />
         {scene.hotspots.map((hotspot) => {
           let x = 50 + (hotspot.yaw / 180) * 50;
           let y = 50 - (hotspot.pitch / 90) * 50;
           x = Math.max(5, Math.min(95, x));
           y = Math.max(5, Math.min(95, y));
-
-          return (
-            <button
-              key={hotspot.id}
-              className={`absolute z-10 transform -translate-x-1/2 -translate-y-1/2 group ${hotspot.variant === 'small' ? 'scale-[0.65] origin-right' : ''}`}
-              style={{ left: `${x}%`, top: `${y}%` }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (hotspot.type === 'scene' && hotspot.targetScene) {
-                  onNavigate(hotspot.targetScene);
-                } else {
-                  onShowInfo(hotspot);
-                }
-              }}
-            >
-              <div className={`
-                relative flex items-center gap-2.5 px-4 py-2.5 rounded-full overflow-hidden transition-all duration-300
-                ${hotspot.type === 'scene' 
-                  ? 'bg-mits-gold/90 hover:bg-mits-gold shadow-[0_0_20px_rgba(252,211,77,0.4)] hover:shadow-[0_0_30px_rgba(252,211,77,0.6)] border border-mits-gold' 
-                  : 'bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-md border border-white/20 hover:border-white/40'}
-                hotspot-pulse group-hover:scale-105
-              `}>
-                <div className={`absolute inset-[-10px] rounded-full blur-md transition-opacity duration-300 ${
-                  hotspot.type === 'scene' ? 'bg-mits-gold/25 opacity-80' : 'bg-primary/20 opacity-60'
-                }`} />
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-[150%] group-hover:animate-[sweep_1.5s_ease-in-out_infinite] skew-x-12" />
-                
-                {hotspot.type === 'info' && (
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-primary/40">
-                    <Info className="w-3.5 h-3.5 text-white" />
-                  </div>
-                )}
-                <span className={`text-sm font-bold tracking-wide whitespace-nowrap drop-shadow-sm ${
-                  hotspot.type === 'scene' ? 'text-mits-navy' : 'text-white'
-                }`}>
-                  {hotspot.label}
-                </span>
-              </div>
-            </button>
-          );
+          return renderHotspot(hotspot, { left: `${x}%`, top: `${y}%` });
         })}
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="relative w-full h-full cursor-grab active:cursor-grabbing select-none">
-      {/* Loading */}
+    <div ref={containerRef} className="relative h-full w-full cursor-grab select-none active:cursor-grabbing">
       {isLoading && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-mits-dark">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-mits-gold border-t-transparent rounded-full animate-spin" />
-            <p className="text-primary-foreground font-body text-sm">Loading panorama...</p>
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-mits-gold border-t-transparent" />
+            <p className="font-body text-sm text-primary-foreground">Loading panorama...</p>
           </div>
         </div>
       )}
 
-      {/* Hotspots */}
-      {hotspotPositions.map(({ hotspot, x, y, visible }) => (
-        visible && (
-          <button
-            key={hotspot.id}
-            className={`absolute z-10 transform -translate-x-1/2 -translate-y-1/2 group ${hotspot.variant === 'small' ? 'scale-[0.65] origin-right' : ''}`}
-            style={{ left: x, top: y }}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hotspot.type === 'scene' && hotspot.targetScene) {
-                onNavigate(hotspot.targetScene);
-              } else {
-                onShowInfo(hotspot);
-              }
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            <div className={`
-              relative flex items-center gap-2.5 px-4 py-2.5 rounded-full overflow-hidden transition-all duration-300
-              ${hotspot.type === 'scene' 
-                ? 'bg-mits-gold/90 hover:bg-mits-gold shadow-[0_0_20px_rgba(252,211,77,0.4)] hover:shadow-[0_0_30px_rgba(252,211,77,0.6)] border border-mits-gold' 
-                : 'bg-white/10 hover:bg-white/20 shadow-lg backdrop-blur-md border border-white/20 hover:border-white/40'}
-              hotspot-pulse group-hover:scale-105
-            `}>
-              <div className={`absolute inset-[-10px] rounded-full blur-md transition-opacity duration-300 ${
-                hotspot.type === 'scene' ? 'bg-mits-gold/25 opacity-80' : 'bg-primary/20 opacity-60'
-              }`} />
-              {/* Highlight sweep effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-[150%] group-hover:animate-[sweep_1.5s_ease-in-out_infinite] skew-x-12" />
-              
-              {hotspot.type === 'info' && (
-                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-primary/40">
-                  <Info className="w-3.5 h-3.5 text-white" />
-                </div>
-              )}
-              <span className={`text-sm font-bold tracking-wide whitespace-nowrap drop-shadow-sm ${
-                hotspot.type === 'scene' ? 'text-mits-navy' : 'text-white'
-              }`}>
-                {hotspot.label}
-              </span>
-            </div>
-          </button>
-        )
-      ))}
+      {hotspotPositions.map(({ hotspot, x, y, visible }) => {
+        if (!visible) return null;
+        return renderHotspot(hotspot, { left: x, top: y });
+      })}
     </div>
   );
 };

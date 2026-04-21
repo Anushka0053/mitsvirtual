@@ -5,10 +5,10 @@ import { Play, MapPin, BookOpen, Users, Award, ChevronDown, Building2, Library, 
 import { useRef } from 'react';
 
 const stats = [
-  { icon: BookOpen, label: 'Programs', value: '15+' },
-  { icon: Users, label: 'Students', value: '5000+' },
-  { icon: Award, label: 'Years Legacy', value: '65+' },
-  { icon: MapPin, label: 'Acre Campus', value: '650' },
+  { icon: BookOpen, label: 'Programs', value: '25+' },
+  { icon: Users, label: 'Students', value: '1500+' },
+  { icon: Award, label: 'Years Legacy', value: '67+' },
+  { icon: MapPin, label: 'Acre Campus', value: '47' },
 ];
 
 const containerVariants = {
@@ -89,7 +89,7 @@ const LandingClassic = () => {
             </motion.h1>
 
             <motion.p variants={itemVariants} className="text-mits-gold/90 text-xl md:text-2xl font-body mb-3 font-light">
-              Gwalior, Madhya Pradesh
+              Gola Ka Mandir, Gwalior, Madhya Pradesh
             </motion.p>
 
             <motion.p variants={itemVariants} className="text-mits-gold/75 text-sm md:text-base font-body mb-10 max-w-2xl mx-auto flex items-center justify-center gap-2 flex-wrap">
@@ -181,8 +181,7 @@ const LandingClassic = () => {
               A Legacy of <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-mits-sky">Excellence</span>
             </h2>
             <p className="text-white/70 max-w-3xl mx-auto leading-relaxed text-lg md:text-xl font-light">
-              Madhav Institute of Technology & Science (MITS), Gwalior is one of the most prestigious engineering
-              institutions in Central India. Established in 1957, the institute offers a transformative educational experience on an expansive 650-acre campus.
+              Madhav Institute of Technology & Science (MITS), Gwalior was established in 1957 by His Highness Sir Jiwaji Rao Scindia, Maharaja of the erstwhile state of Gwalior. In 2024, the Ministry of Education, Government of India declared MITS a Deemed University under Distinct Category. The institute offers a transformative educational experience on an expansive 47-acre campus at Gola Ka Mandir, Gwalior.
             </p>
           </motion.div>
 
@@ -190,9 +189,9 @@ const LandingClassic = () => {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[150%] bg-gradient-to-tr from-primary/5 via-transparent to-mits-gold/5 blur-3xl -z-10 rounded-[100%]" />
 
             {[
-              { title: 'Academic Excellence', desc: 'NAAC accredited with 15+ UG/PG programs. Offering cutting-edge curriculum affiliated to RGPV, Bhopal.', icon: Globe },
-              { title: 'Research & Innovation', desc: 'Active research centers, funded projects by DST, AICTE, and intensive collaborations with leading industries.', icon: Microscope },
-              { title: 'Campus Life', desc: 'Vibrant campus with cultural fests, technical symposiums, premier sports tournaments, and NCC/NSS activities.', icon: Cpu },
+              { title: 'Academic Excellence', desc: 'NAAC A++ accredited Deemed University (Distinct Category) offering UG, PG & Ph.D. programs in Engineering, Technology, Architecture, and Management.', icon: Globe },
+              { title: 'Research & Innovation', desc: 'Active research centers and funded projects by DST, AICTE, and NPTEL. MITS NPTEL local chapter ranked 2nd among 100+ active chapters nationally.', icon: Microscope },
+              { title: 'Campus Life', desc: 'Vibrant 47-acre campus with cultural fests (Aarunya, Mitsvah, Abhudaya), technical events (Cypher & Dy\'signo), NCC/NSS, sports facilities, and a DGCA-approved Drone Flying School.', icon: Cpu },
             ].map((item, i) => (
               <motion.div
                 key={item.title}
@@ -324,16 +323,12 @@ const LandingClassic = () => {
             <p className="font-display text-2xl font-bold text-white mb-3">
               Madhav Institute of Technology & Science
             </p>
-            <p className="text-base text-white/65 font-light mb-8">
-              Race Course Road, Gwalior - 474005, Madhya Pradesh, India
+            <p className="text-base text-white/65 font-light mb-2">
+              Gola Ka Mandir, Gwalior - 474005, Madhya Pradesh, India
             </p>
-            {/* <div className="flex items-center justify-center gap-6 mb-8">
-              <span className="text-sm font-medium text-white/55 hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
-              <span className="w-1 h-1 rounded-full bg-white/20" />
-              <span className="text-sm font-medium text-white/55 hover:text-white cursor-pointer transition-colors">Terms of Service</span>
-              <span className="w-1 h-1 rounded-full bg-white/20" />
-              <span className="text-sm font-medium text-white/55 hover:text-white cursor-pointer transition-colors">Contact Us</span>
-            </div> */}
+            <p className="text-sm text-white/50 font-light mb-8">
+              Ph.: +91-751-2409300 &nbsp;|&nbsp; vicechancellor@mitsgwalior.in &nbsp;|&nbsp; www.mitsgwalior.in
+            </p>
             <p className="text-sm text-white/45 font-light">
               © {new Date().getFullYear()} MITS Gwalior. Virtual Campus Tour. All rights reserved.
             </p>
