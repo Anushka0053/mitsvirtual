@@ -95,9 +95,9 @@ const LandingClassic = () => {
             <motion.p variants={itemVariants} className="text-mits-gold/75 text-sm md:text-base font-body mb-10 max-w-2xl mx-auto flex items-center justify-center gap-2 flex-wrap">
               <span>Established in 1957</span>
               <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
-              <span>Affiliated to RGPV</span>
+              <span>Deemed University</span>
               <span className="w-1.5 h-1.5 rounded-full bg-primary/50" />
-              <span>NAAC Accredited</span>
+              <span>NAAC A++ Accredited</span>
             </motion.p>
 
             <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-5 w-full sm:w-auto">
