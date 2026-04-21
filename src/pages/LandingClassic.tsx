@@ -326,9 +326,9 @@ const LandingClassic = () => {
             <p className="text-base text-white/65 font-light mb-2">
               Gola Ka Mandir, Gwalior - 474005, Madhya Pradesh, India
             </p>
-            <p className="text-sm text-white/50 font-light mb-8">
+            {/* <p className="text-sm text-white/50 font-light mb-8">
               Ph.: +91-751-2409300 &nbsp;|&nbsp; vicechancellor@mitsgwalior.in &nbsp;|&nbsp; www.mitsgwalior.in
-            </p>
+            </p> */}
             <p className="text-sm text-white/45 font-light">
               © {new Date().getFullYear()} MITS Gwalior. Virtual Campus Tour. All rights reserved.
             </p>
